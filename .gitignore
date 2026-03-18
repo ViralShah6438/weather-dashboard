@@ -1,0 +1,37 @@
+# Node
+node_modules/
+dist/
+coverage/
+
+# .NET
+bin/
+obj/
+TestResults/
+
+# IDE
+.vscode/
+.idea/
+.vs/
+*.suo
+*.user
+*.vsidx
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Secrets
+.env
+.env.local
+appsettings.Development.local.json
+
+# Runtime data
+app_data/
+
+# Angular / React build output
+apps/web/dist/
+apps/web-react/dist/
+
+# Angular build cache
+apps/web/.angular/
+

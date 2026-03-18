@@ -1,0 +1,61 @@
+.shell {
+  max-width: 1060px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.hero {
+  margin-bottom: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.hero p {
+  margin: 0.45rem 0 0;
+  color: #456788;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+
+.main-panel,
+.side-panel {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #dceafa;
+  padding: 1rem;
+}
+
+.main-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.status,
+.error {
+  margin: 0;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+}
+
+.status {
+  background: #edf9f1;
+  color: #2d7a3f;
+}
+
+.error {
+  background: #fff2f0;
+  color: #ad2d27;
+}
+
+@media (max-width: 920px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

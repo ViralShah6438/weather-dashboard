@@ -1,0 +1,11 @@
+<form class="search" (ngSubmit)="submit()">
+  <input
+    type="text"
+    name="city"
+    [placeholder]="placeholder"
+    [(ngModel)]="city"
+    [disabled]="disabled"
+    autocomplete="off"
+  />
+  <button type="submit" [disabled]="disabled">Search</button>
+</form>

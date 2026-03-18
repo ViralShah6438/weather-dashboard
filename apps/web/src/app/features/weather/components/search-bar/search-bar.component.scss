@@ -1,0 +1,34 @@
+.search {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+}
+
+input {
+  border: 1px solid #c6d6e7;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 1rem;
+  background: #ffffff;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+@media (max-width: 560px) {
+  .search {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,14 @@
+<form class="default-location" (ngSubmit)="submit()">
+  <label for="default-city">Default location</label>
+  <div class="row">
+    <input
+      id="default-city"
+      type="text"
+      name="defaultCity"
+      [(ngModel)]="draftCity"
+      [disabled]="disabled"
+      placeholder="Set default city"
+    />
+    <button type="submit" [disabled]="disabled">Save</button>
+  </div>
+</form>

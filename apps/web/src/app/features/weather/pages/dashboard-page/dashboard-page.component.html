@@ -1,0 +1,27 @@
+<section class="shell">
+  <header class="hero">
+    <h1>Weather Dashboard</h1>
+    <p>Search current weather and maintain your default location.</p>
+  </header>
+
+  <div class="layout">
+    <section class="main-panel">
+      <app-search-bar [disabled]="(isLoading$ | async) ?? false" (search)="onSearch($event)"></app-search-bar>
+
+      <app-loading-state *ngIf="isLoading$ | async"></app-loading-state>
+
+      <p class="status" *ngIf="statusMessage$ | async as statusMessage">{{ statusMessage }}</p>
+      <p class="error" *ngIf="errorMessage$ | async as errorMessage">{{ errorMessage }}</p>
+
+      <app-weather-display *ngIf="weather$ | async as value" [weather]="value"></app-weather-display>
+    </section>
+
+    <aside class="side-panel">
+      <app-default-location
+        [city]="(defaultLocation$ | async) ?? ''"
+        [disabled]="(isLoading$ | async) ?? false"
+        (save)="onSaveDefaultLocation($event)">
+      </app-default-location>
+    </aside>
+  </div>
+</section>

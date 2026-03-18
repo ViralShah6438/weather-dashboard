@@ -1,0 +1,39 @@
+.default-location {
+  background: #ffffff;
+  border: 1px solid #e2edf8;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-weight: 600;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+}
+
+input {
+  border: 1px solid #c6d6e7;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  background: #0f4c81;
+  color: #fff;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

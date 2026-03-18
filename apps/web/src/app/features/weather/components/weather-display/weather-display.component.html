@@ -1,0 +1,29 @@
+<article class="card" *ngIf="weather as w">
+  <header class="card-header">
+    <div>
+      <h2>{{ w.city }}</h2>
+      <p>{{ w.description }}</p>
+    </div>
+    <img
+      [src]="'https://openweathermap.org/img/wn/' + w.iconCode + '@2x.png'"
+      [alt]="w.description"
+      width="90"
+      height="90"
+    />
+  </header>
+
+  <section class="metrics">
+    <div>
+      <span>Temperature</span>
+      <strong>{{ w.temperatureC | number: '1.0-1' }} C</strong>
+    </div>
+    <div>
+      <span>Humidity</span>
+      <strong>{{ w.humidity }}%</strong>
+    </div>
+    <div>
+      <span>Wind</span>
+      <strong>{{ w.windSpeedKph | number: '1.0-1' }} km/h</strong>
+    </div>
+  </section>
+</article>

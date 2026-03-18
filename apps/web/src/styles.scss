@@ -1,0 +1,17 @@
+:root {
+  --bg: #f3f7fb;
+  --card: #ffffff;
+  --text: #0d1b2a;
+  --accent: #0077b6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #eef6ff 0%, #f8fcff 100%);
+  color: var(--text);
+}

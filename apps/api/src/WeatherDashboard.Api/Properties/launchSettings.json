@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "WeatherDashboard.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "OpenWeather__ApiKey": ""
+      },
+      "applicationUrl": "https://localhost:52938;http://localhost:52939"
+    }
+  }
+}
