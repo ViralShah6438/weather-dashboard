@@ -41,8 +41,7 @@ weather-dashboard/
 │   │   │   │   └── shared/           # Reusable components
 │   │   │   └── environments/         # Environment configurations
 │   │   ├── package.json
-│   │   ├── angular.json
-│   │   └── proxy.conf.json
+│   │   └── angular.json
 │   │
 │   └── api/                          # ASP.NET Core Web API
 │       ├── src/
@@ -275,9 +274,7 @@ src/app/
 
 src/environments/
 ├── environment.ts              # Development config
-├── environment.prod.ts         # Production config
-├── environment.local.ts        # Local overrides
-└── environment.hosted.sample.ts  # Sample hosted config
+└── environment.prod.ts         # Production config
 ```
 
 ### Backend (Layered Architecture)
