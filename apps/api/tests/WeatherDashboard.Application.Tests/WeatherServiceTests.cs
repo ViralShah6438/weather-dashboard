@@ -1,3 +1,4 @@
+using Moq;
 using WeatherDashboard.Application.Abstractions;
 using WeatherDashboard.Application.Services;
 using WeatherDashboard.Domain.Exceptions;
@@ -8,72 +9,80 @@ namespace WeatherDashboard.Application.Tests;
 
 public sealed class WeatherServiceTests
 {
+    private readonly Mock<IWeatherProvider> _mockProvider;
+    private readonly WeatherService _service;
+
+    public WeatherServiceTests()
+    {
+        _mockProvider = new Mock<IWeatherProvider>();
+        _service = new WeatherService(_mockProvider.Object);
+    }
+
     [Fact]
     public async Task GetByCityAsync_DelegatesToProvider()
     {
-        var provider = new StubWeatherProvider();
-        var service = new WeatherService(provider);
+        _mockProvider
+            .Setup(p => p.GetCurrentAsync("Berlin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WeatherSnapshot("Berlin", 12, 60, 5, "01d", "clear sky"));
 
-        var result = await service.GetByCityAsync("Berlin");
+        var result = await _service.GetByCityAsync("Berlin");
 
-        Assert.Equal("Berlin", provider.LastCity);
         Assert.Equal("Berlin", result.City);
+        _mockProvider.Verify(p => p.GetCurrentAsync("Berlin", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetByCityAsync_ThrowsForEmptyCity()
     {
-        var provider = new StubWeatherProvider();
-        var service = new WeatherService(provider);
-
-        await Assert.ThrowsAsync<ArgumentException>(() => service.GetByCityAsync(" "));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.GetByCityAsync(" "));
     }
 
     [Fact]
     public async Task GetByCityAsync_ThrowsForNullCity()
     {
-        var provider = new StubWeatherProvider();
-        var service = new WeatherService(provider);
-
-        await Assert.ThrowsAsync<ArgumentException>(() => service.GetByCityAsync(null!));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.GetByCityAsync(null!));
     }
 
     [Fact]
     public async Task GetByCityAsync_TrimsCityName()
     {
-        var provider = new StubWeatherProvider();
-        var service = new WeatherService(provider);
+        _mockProvider
+            .Setup(p => p.GetCurrentAsync("London", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WeatherSnapshot("London", 12, 60, 5, "01d", "clear sky"));
 
-        await service.GetByCityAsync("  London  ");
+        await _service.GetByCityAsync("  London  ");
 
-        Assert.Equal("London", provider.LastCity);
+        _mockProvider.Verify(p => p.GetCurrentAsync("London", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetByCityAsync_PropagatesCityNotFoundException()
     {
-        var provider = new ThrowingWeatherProvider(new CityNotFoundException("Unknown"));
-        var service = new WeatherService(provider);
+        _mockProvider
+            .Setup(p => p.GetCurrentAsync("Unknown", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new CityNotFoundException("Unknown"));
 
-        await Assert.ThrowsAsync<CityNotFoundException>(() => service.GetByCityAsync("Unknown"));
+        await Assert.ThrowsAsync<CityNotFoundException>(() => _service.GetByCityAsync("Unknown"));
     }
 
     [Fact]
     public async Task GetByCityAsync_PropagatesWeatherProviderException()
     {
-        var provider = new ThrowingWeatherProvider(new WeatherProviderException("API Error"));
-        var service = new WeatherService(provider);
+        _mockProvider
+            .Setup(p => p.GetCurrentAsync("London", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new WeatherProviderException("API Error"));
 
-        await Assert.ThrowsAsync<WeatherProviderException>(() => service.GetByCityAsync("London"));
+        await Assert.ThrowsAsync<WeatherProviderException>(() => _service.GetByCityAsync("London"));
     }
 
     [Fact]
     public async Task GetByCityAsync_ReturnsCorrectWeatherData()
     {
-        var provider = new StubWeatherProvider();
-        var service = new WeatherService(provider);
+        _mockProvider
+            .Setup(p => p.GetCurrentAsync("Tokyo", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WeatherSnapshot("Tokyo", 12m, 60, 5m, "01d", "clear sky"));
 
-        var result = await service.GetByCityAsync("Tokyo");
+        var result = await _service.GetByCityAsync("Tokyo");
 
         Assert.Equal("Tokyo", result.City);
         Assert.Equal(12m, result.TemperatureC);
@@ -86,41 +95,15 @@ public sealed class WeatherServiceTests
     [Fact]
     public async Task GetByCityAsync_PassesCancellationToken()
     {
-        var provider = new StubWeatherProvider();
-        var service = new WeatherService(provider);
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
 
-        await service.GetByCityAsync("Paris", token);
+        _mockProvider
+            .Setup(p => p.GetCurrentAsync("Paris", token))
+            .ReturnsAsync(new WeatherSnapshot("Paris", 12, 60, 5, "01d", "clear sky"));
 
-        Assert.Equal(token, provider.LastCancellationToken);
-    }
+        await _service.GetByCityAsync("Paris", token);
 
-    private sealed class StubWeatherProvider : IWeatherProvider
-    {
-        public string? LastCity { get; private set; }
-        public CancellationToken LastCancellationToken { get; private set; }
-
-        public Task<WeatherSnapshot> GetCurrentAsync(string city, CancellationToken cancellationToken = default)
-        {
-            LastCity = city;
-            LastCancellationToken = cancellationToken;
-            return Task.FromResult(new WeatherSnapshot(city, 12, 60, 5, "01d", "clear sky"));
-        }
-    }
-
-    private sealed class ThrowingWeatherProvider : IWeatherProvider
-    {
-        private readonly Exception _exception;
-
-        public ThrowingWeatherProvider(Exception exception)
-        {
-            _exception = exception;
-        }
-
-        public Task<WeatherSnapshot> GetCurrentAsync(string city, CancellationToken cancellationToken = default)
-        {
-            throw _exception;
-        }
+        _mockProvider.Verify(p => p.GetCurrentAsync("Paris", token), Times.Once);
     }
 }

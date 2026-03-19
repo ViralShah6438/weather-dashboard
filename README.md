@@ -8,24 +8,17 @@ A full-stack weather application built with Angular (NgModule-based) and ASP.NET
 - **Architecture**: NgModule-based with feature modules (WeatherModule, SettingsModule)
 - **State Management**: RxJS Subjects/BehaviorSubjects for reactive data flow
 - **Build**: Production and development configurations with environment-based settings
+- **Observability**: Application Insights SDK with centralised `AppLoggerService` for structured logging
 - **Testing**: Jasmine/Karma unit test framework
 
 ### Backend (ASP.NET Core 9)
 - **Architecture**: Layered (API → Application → Domain → Infrastructure)
 - **Weather Data**: Two-step geocoding flow (GeoAPI → OpenWeatherMap API)
 - **Performance**: In-memory caching with configurable TTL
+- **Resilience**: Circuit breaker pattern using Microsoft.Extensions.Http.Resilience for fault tolerance
+- **Observability**: Application Insights integration for telemetry and logging
 - **Security**: CORS enabled for Angular frontend, rate limiting (fixed window, concurrency, global)
 - **API Documentation**: Swagger/OpenAPI integration
-
-## Key Features
-
-✅ **Two-Step Weather Lookup**: City name → Geographic coordinates (GeoAPI) → Weather data (OpenWeatherMap)
-✅ **Responsive Design**: Mobile-first layout for desktop and mobile viewing
-✅ **Default Location Persistence**: Server-side file-based storage with concurrent access control
-✅ **Rate Limiting**: Multi-strategy protection (global, fixed window, concurrency-based)
-✅ **Caching**: Configurable in-memory caching to reduce API calls
-✅ **Error Handling**: Comprehensive error responses with problem details
-✅ **CORS Support**: Pre-configured for local development and production
 
 ## Repository Layout
 
@@ -37,8 +30,8 @@ weather-dashboard/
 │   │   │   ├── app/
 │   │   │   │   ├── app.module.ts     # Root module
 │   │   │   │   ├── features/         # Feature modules (weather, settings)
-│   │   │   │   ├── core/             # Shared services and models
-│   │   │   │   └── shared/           # Reusable components
+│   │   │   │   ├── core/             # Services, logging, observability, models
+│   │   │   │   └── shared/           # Reusable UI components
 │   │   │   └── environments/         # Environment configurations
 │   │   ├── package.json
 │   │   └── angular.json
@@ -107,12 +100,11 @@ dotnet build
 # Run tests
 dotnet test
 
-# Run the API (runs on https://localhost:5001)
 dotnet run --project src/WeatherDashboard.Api
 ```
 
-**API runs on**: `https://localhost:5001`
-**Swagger UI**: `https://localhost:5001/swagger`
+**API runs on**: `https://localhost:52938`
+**Swagger UI**: `https://localhost:52938/swagger`
 
 ## Configuration
 
@@ -125,9 +117,23 @@ dotnet run --project src/WeatherDashboard.Api
     "ApiKey": "YOUR_OPENWEATHERMAP_API_KEY"
   },
   "Cors": {
-    "AllowedOrigins": ["http://localhost:4201"]
+    "AllowedOrigins": ["http://localhost:4201"]  // update to match your Angular dev port
   },
-  "IsCacheEnabled": true,
+  "IsCacheEnabled": false,
+  "ApplicationInsights": {
+    "ConnectionString": "YOUR_APPLICATION_INSIGHTS_CONNECTION_STRING"
+  },
+  "Resilience": {
+    "HttpClient": {
+      "TimeoutSeconds": 30
+    },
+    "CircuitBreaker": {
+      "SamplingDurationSeconds": 30,
+      "FailureRatio": 0.5,
+      "MinimumThroughput": 3,
+      "BreakDurationSeconds": 30
+    }
+  },
   "RateLimiting": {
     "Global": {
       "PermitLimit": 200,
@@ -150,11 +156,24 @@ dotnet run --project src/WeatherDashboard.Api
 ### Frontend Configuration (environment.ts / environment.prod.ts)
 
 ```typescript
+// environment.ts (development default)
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://localhost:5001/api'
+  apiBaseUrl: 'https://localhost:52938/api',
+  enableDebugLogging: true,
+  appInsightsInstrumentationKey: ''
+};
+
+// environment.prod.ts (production build)
+export const environment = {
+  production: true,
+  apiBaseUrl: 'https://your-api-host.azurewebsites.net/api',
+  enableDebugLogging: false,
+  appInsightsInstrumentationKey: ''
 };
 ```
+
+> Set `appInsightsInstrumentationKey` to your App Insights key to enable client-side telemetry.
 
 ### Environment Variables (Optional)
 
@@ -211,10 +230,6 @@ cd apps/api
 dotnet run --project src/WeatherDashboard.Api
 ```
 
-### Option 2: Using VS Code Tasks
-
-Both projects can be launched via VS Code's Run and Debug configuration.
-
 ## Testing
 
 ### Frontend Unit Tests
@@ -241,82 +256,6 @@ Tests cover:
 - DefaultLocationService persistence
 - Controller validation and responses
 
-## Project Structure Details
-
-### Frontend (NgModule Architecture)
-
-```
-src/app/
-├── app.module.ts              # Root module
-├── app-routing.module.ts      # Main routing
-├── app.component.ts           # Root component
-├── core/
-│   ├── api/
-│   │   ├── weather.service.ts
-│   │   └── settings.service.ts
-│   └── models/
-│       └── weather.models.ts
-├── features/
-│   ├── weather/
-│   │   ├── weather.module.ts
-│   │   ├── components/
-│   │   │   ├── search-bar/
-│   │   │   └── weather-display/
-│   │   └── pages/
-│   │       └── dashboard-page/
-│   └── settings/
-│       ├── settings.module.ts
-│       └── components/
-│           └── default-location/
-└── shared/
-    └── components/
-        └── loading-state/
-
-src/environments/
-├── environment.ts              # Development config
-└── environment.prod.ts         # Production config
-```
-
-### Backend (Layered Architecture)
-
-```
-src/
-├── WeatherDashboard.Api/
-│   ├── Controllers/            # API endpoints
-│   ├── Contracts/              # Request/response DTOs
-│   ├── Program.cs              # DI & middleware setup
-│   ├── appsettings.json
-│   └── appsettings.Development.json
-├── WeatherDashboard.Application/
-│   ├── Abstractions/           # Service interfaces
-│   └── Services/               # Business logic
-├── WeatherDashboard.Domain/
-│   ├── Models/                 # Domain entities
-│   └── Exceptions/             # Custom exceptions
-└── WeatherDashboard.Infrastructure/
-    ├── Clients/                # OpenWeather API client (with GeoAPI)
-    └── Persistence/            # File-based repository
-
-tests/
-├── WeatherDashboard.Api.Tests/          # Controller tests
-└── WeatherDashboard.Application.Tests/  # Service tests
-```
-
-## Technologies & Dependencies
-
-### Frontend
-- **Angular**: 19.x (Modules, dependency injection)
-- **RxJS**: 7.8+ (Observable streams, Subjects)
-- **TypeScript**: 5.6+
-- **Karma/Jasmine**: Unit testing
-- **SCSS**: Styling
-
-### Backend
-- **.NET**: 9.0
-- **ASP.NET Core**: Web API framework
-- **xUnit**: Unit testing framework
-- **Swashbuckle**: Swagger/OpenAPI documentation
-
 ## Contributing
 
 When making changes:
@@ -334,5 +273,5 @@ When making changes:
 - [RxJS Documentation](https://rxjs.dev/)
 ---
 
-**Last Updated**: March 16, 2026  
-**Version**: 1.0 - Complete implementation with production-ready patterns
+**Last Updated**: March 2026  
+**Version**: 1.1 - Added frontend Application Insights integration, centralised structured logging (AppLoggerService), production build configuration

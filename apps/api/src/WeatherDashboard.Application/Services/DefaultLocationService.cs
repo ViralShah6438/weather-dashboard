@@ -13,9 +13,9 @@ public sealed class DefaultLocationService : IDefaultLocationService
         _weatherProvider = weatherProvider;
     }
 
-    public Task<string> GetAsync(CancellationToken cancellationToken = default)
+    public async Task<string> GetAsync(CancellationToken cancellationToken = default)
     {
-        return _repository.GetAsync(cancellationToken);
+        return await _repository.GetAsync(cancellationToken);
     }
 
     public async Task SetAsync(string city, CancellationToken cancellationToken = default)

@@ -11,10 +11,12 @@ namespace WeatherDashboard.Api.Controllers;
 public sealed class WeatherController : ControllerBase
 {
     private readonly IWeatherService _weatherService;
+    private readonly ILogger<WeatherController> _logger;
 
-    public WeatherController(IWeatherService weatherService)
+    public WeatherController(IWeatherService weatherService, ILogger<WeatherController> logger)
     {
         _weatherService = weatherService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -27,6 +29,7 @@ public sealed class WeatherController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(city))
         {
+            _logger.LogWarning("Weather request rejected: city parameter is empty");
             return ValidationProblem(new ValidationProblemDetails
             {
                 Title = "Validation error",
@@ -50,6 +53,7 @@ public sealed class WeatherController : ControllerBase
         }
         catch (CityNotFoundException)
         {
+            _logger.LogWarning("City not found: {City}", city);
             return NotFound(new ProblemDetails
             {
                 Title = "City not found",
@@ -59,6 +63,7 @@ public sealed class WeatherController : ControllerBase
         }
         catch (WeatherProviderException ex)
         {
+            _logger.LogError(ex, "Weather provider error for city {City}", city);
             return Problem(
                 title: "Weather provider error",
                 detail: ex.Message,

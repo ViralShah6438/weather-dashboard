@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WeatherDashboard.Application.Abstractions;
 using WeatherDashboard.Domain.Exceptions;
@@ -12,24 +14,29 @@ public sealed class OpenWeatherClient : IWeatherProvider
 {
     private readonly HttpClient _httpClient;
     private readonly OpenWeatherOptions _options;
+    private readonly ILogger<OpenWeatherClient> _logger;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
-    public OpenWeatherClient(HttpClient httpClient, IOptions<OpenWeatherOptions> options)
+    public OpenWeatherClient(HttpClient httpClient, IOptions<OpenWeatherOptions> options, ILogger<OpenWeatherClient> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<WeatherSnapshot> GetCurrentAsync(string city, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
+            _logger.LogError("OpenWeather API key is not configured");
             throw new WeatherProviderException("OpenWeather API key is not configured.");
         }
+
+        _logger.LogDebug("Fetching weather for city: {City}", city);
 
         // Step 1: Use Geocoding API to convert city name to coordinates
         var geoLocation = await GetGeoLocationAsync(city, cancellationToken);
@@ -40,6 +47,8 @@ public sealed class OpenWeatherClient : IWeatherProvider
 
         if (!weatherResponse.IsSuccessStatusCode)
         {
+            _logger.LogError("OpenWeather API request failed with status {StatusCode} for city {City}", 
+                (int)weatherResponse.StatusCode, city);
             throw new WeatherProviderException($"OpenWeather request failed with status {(int)weatherResponse.StatusCode}.");
         }
 
@@ -48,8 +57,11 @@ public sealed class OpenWeatherClient : IWeatherProvider
 
         if (payload is null || payload.Main is null || payload.Wind is null || payload.Weather is null || payload.Weather.Count == 0)
         {
+            _logger.LogError("OpenWeather API returned invalid response for city {City}", city);
             throw new WeatherProviderException("OpenWeather response was invalid.");
         }
+
+        _logger.LogDebug("Successfully fetched weather for {City}: {Temp}°C", geoLocation.Name ?? city, payload.Main.Temp);
 
         var primaryWeather = payload.Weather[0];
         return new WeatherSnapshot(
@@ -68,6 +80,8 @@ public sealed class OpenWeatherClient : IWeatherProvider
 
         if (!geoResponse.IsSuccessStatusCode)
         {
+            _logger.LogError("OpenWeather Geocoding API failed with status {StatusCode} for city {City}", 
+                (int)geoResponse.StatusCode, city);
             throw new WeatherProviderException($"OpenWeather Geocoding request failed with status {(int)geoResponse.StatusCode}.");
         }
 
@@ -76,6 +90,7 @@ public sealed class OpenWeatherClient : IWeatherProvider
 
         if (geoResults is null || geoResults.Count == 0)
         {
+            _logger.LogDebug("City not found in geocoding: {City}", city);
             throw new CityNotFoundException(city);
         }
 

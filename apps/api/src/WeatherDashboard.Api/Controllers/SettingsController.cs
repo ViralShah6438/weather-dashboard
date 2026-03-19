@@ -10,10 +10,12 @@ namespace WeatherDashboard.Api.Controllers;
 public sealed class SettingsController : ControllerBase
 {
     private readonly IDefaultLocationService _defaultLocationService;
+    private readonly ILogger<SettingsController> _logger;
 
-    public SettingsController(IDefaultLocationService defaultLocationService)
+    public SettingsController(IDefaultLocationService defaultLocationService, ILogger<SettingsController> logger)
     {
         _defaultLocationService = defaultLocationService;
+        _logger = logger;
     }
 
     [HttpGet("default-location")]
@@ -32,6 +34,7 @@ public sealed class SettingsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.City))
         {
+            _logger.LogWarning("Set default location rejected: city parameter is empty");
             return ValidationProblem(new ValidationProblemDetails
             {
                 Title = "Validation error",
@@ -43,10 +46,12 @@ public sealed class SettingsController : ControllerBase
         try
         {
             await _defaultLocationService.SetAsync(request.City, cancellationToken);
+            _logger.LogInformation("Default location updated to {City}", request.City);
             return NoContent();
         }
         catch (CityNotFoundException)
         {
+            _logger.LogWarning("Set default location failed: city not found {City}", request.City);
             return NotFound(new ProblemDetails
             {
                 Title = "City not found",

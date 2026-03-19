@@ -1,4 +1,4 @@
-using WeatherDashboard.Application.Abstractions;
+using Moq;
 using WeatherDashboard.Application.Abstractions;
 using WeatherDashboard.Application.Services;
 using WeatherDashboard.Domain.Exceptions;
@@ -9,117 +9,128 @@ namespace WeatherDashboard.Application.Tests;
 
 public sealed class DefaultLocationServiceTests
 {
+    private readonly Mock<IDefaultLocationStoreCache> _mockRepository;
+    private readonly Mock<IWeatherProvider> _mockWeatherProvider;
+    private readonly DefaultLocationService _service;
+
+    public DefaultLocationServiceTests()
+    {
+        _mockRepository = new Mock<IDefaultLocationStoreCache>();
+        _mockWeatherProvider = new Mock<IWeatherProvider>();
+        _service = new DefaultLocationService(_mockRepository.Object, _mockWeatherProvider.Object);
+    }
+
     [Fact]
     public async Task SetAsync_StoresTrimmedValue()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("Paris", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WeatherSnapshot("Paris", 20m, 50, 10m, "01d", "Clear sky"));
+        _mockRepository
+            .Setup(r => r.SetAsync("Paris", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        await service.SetAsync("  Paris  ");
+        await _service.SetAsync("  Paris  ");
 
-        var result = await service.GetAsync();
-        Assert.Equal("Paris", result);
+        _mockRepository.Verify(r => r.SetAsync("Paris", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task SetAsync_ThrowsForEmptyCity()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
-
-        await Assert.ThrowsAsync<ArgumentException>(() => service.SetAsync("  "));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.SetAsync("  "));
     }
 
     [Fact]
     public async Task SetAsync_ThrowsForNullCity()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
-
-        await Assert.ThrowsAsync<ArgumentException>(() => service.SetAsync(null!));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.SetAsync(null!));
     }
 
     [Fact]
     public async Task SetAsync_ThrowsForInvalidCity()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("InvalidCityXYZ123", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new CityNotFoundException("InvalidCityXYZ123"));
 
-        await Assert.ThrowsAsync<CityNotFoundException>(() => service.SetAsync("InvalidCityXYZ123"));
+        await Assert.ThrowsAsync<CityNotFoundException>(() => _service.SetAsync("InvalidCityXYZ123"));
     }
 
     [Fact]
     public async Task SetAsync_UsesCanonicalCityName()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
+        // Weather provider returns canonical name "Paris" even when searching "paris"
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("paris", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WeatherSnapshot("Paris", 20m, 50, 10m, "01d", "Clear sky"));
+        _mockRepository
+            .Setup(r => r.SetAsync("Paris", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        // "paris" should be saved as "Paris" (canonical name from weather provider)
-        await service.SetAsync("paris");
+        await _service.SetAsync("paris");
 
-        var result = await service.GetAsync();
-        Assert.Equal("Paris", result);
+        // Should save canonical name "Paris" not "paris"
+        _mockRepository.Verify(r => r.SetAsync("Paris", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task SetAsync_DoesNotSaveWhenCityInvalid()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
-
-        var originalCity = await service.GetAsync();
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("InvalidCity123", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new CityNotFoundException("InvalidCity123"));
 
         try
         {
-            await service.SetAsync("InvalidCity123");
+            await _service.SetAsync("InvalidCity123");
         }
         catch (CityNotFoundException)
         {
             // Expected
         }
 
-        // Verify original value is preserved
-        var currentCity = await service.GetAsync();
-        Assert.Equal(originalCity, currentCity);
+        // Verify SetAsync was never called on repository
+        _mockRepository.Verify(r => r.SetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
     public async Task SetAsync_PropagatesWeatherProviderException()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new ThrowingWeatherProvider(new WeatherProviderException("API Error"));
-        var service = new DefaultLocationService(repository, weatherProvider);
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("London", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new WeatherProviderException("API Error"));
 
-        await Assert.ThrowsAsync<WeatherProviderException>(() => service.SetAsync("London"));
+        await Assert.ThrowsAsync<WeatherProviderException>(() => _service.SetAsync("London"));
     }
 
     [Fact]
-    public async Task GetAsync_ReturnsDefaultValue()
+    public async Task GetAsync_ReturnsValueFromRepository()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
+        _mockRepository
+            .Setup(r => r.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync("London");
 
-        var result = await service.GetAsync();
+        var result = await _service.GetAsync();
 
-        Assert.Equal("London", result); // Default value in repository
+        Assert.Equal("London", result);
     }
 
     [Fact]
     public async Task GetAsync_ReturnsUpdatedValueAfterSet()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("Tokyo", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WeatherSnapshot("Tokyo", 20m, 50, 10m, "01d", "Clear sky"));
+        _mockRepository
+            .Setup(r => r.SetAsync("Tokyo", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockRepository
+            .Setup(r => r.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync("Tokyo");
 
-        await service.SetAsync("Tokyo");
-        var result = await service.GetAsync();
+        await _service.SetAsync("Tokyo");
+        var result = await _service.GetAsync();
 
         Assert.Equal("Tokyo", result);
     }
@@ -127,73 +138,19 @@ public sealed class DefaultLocationServiceTests
     [Fact]
     public async Task SetAsync_PassesCancellationToken()
     {
-        var repository = new InMemoryDefaultLocationRepository();
-        var weatherProvider = new FakeWeatherProvider();
-        var service = new DefaultLocationService(repository, weatherProvider);
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
 
-        await service.SetAsync("Paris", token);
+        _mockWeatherProvider
+            .Setup(p => p.GetCurrentAsync("Paris", token))
+            .ReturnsAsync(new WeatherSnapshot("Paris", 20m, 50, 10m, "01d", "Clear sky"));
+        _mockRepository
+            .Setup(r => r.SetAsync("Paris", token))
+            .Returns(Task.CompletedTask);
 
-        Assert.Equal(token, weatherProvider.LastCancellationToken);
-        Assert.Equal(token, repository.LastCancellationToken);
-    }
+        await _service.SetAsync("Paris", token);
 
-    private sealed class InMemoryDefaultLocationRepository : IDefaultLocationStoreCache
-    {
-        private string _city = "London";
-        public CancellationToken LastCancellationToken { get; private set; }
-
-        public Task<string> GetAsync(CancellationToken cancellationToken = default)
-        {
-            LastCancellationToken = cancellationToken;
-            return Task.FromResult(_city);
-        }
-
-        public Task SetAsync(string city, CancellationToken cancellationToken = default)
-        {
-            LastCancellationToken = cancellationToken;
-            _city = city;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FakeWeatherProvider : IWeatherProvider
-    {
-        private static readonly HashSet<string> ValidCities = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "Paris", "London", "New York", "Tokyo"
-        };
-
-        public CancellationToken LastCancellationToken { get; private set; }
-
-        public Task<WeatherSnapshot> GetCurrentAsync(string city, CancellationToken cancellationToken = default)
-        {
-            LastCancellationToken = cancellationToken;
-
-            if (!ValidCities.Contains(city))
-            {
-                throw new CityNotFoundException(city);
-            }
-
-            // Return canonical city name (proper casing)
-            var canonicalName = ValidCities.First(c => c.Equals(city, StringComparison.OrdinalIgnoreCase));
-            return Task.FromResult(new WeatherSnapshot(canonicalName, 20m, 50, 10m, "01d", "Clear sky"));
-        }
-    }
-
-    private sealed class ThrowingWeatherProvider : IWeatherProvider
-    {
-        private readonly Exception _exception;
-
-        public ThrowingWeatherProvider(Exception exception)
-        {
-            _exception = exception;
-        }
-
-        public Task<WeatherSnapshot> GetCurrentAsync(string city, CancellationToken cancellationToken = default)
-        {
-            throw _exception;
-        }
+        _mockWeatherProvider.Verify(p => p.GetCurrentAsync("Paris", token), Times.Once);
+        _mockRepository.Verify(r => r.SetAsync("Paris", token), Times.Once);
     }
 }
