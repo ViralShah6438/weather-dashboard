@@ -1,5 +1,6 @@
 using WeatherDashboard.Api.Contracts;
 using WeatherDashboard.Application.Abstractions;
+using WeatherDashboard.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WeatherDashboard.Api.Controllers;
@@ -26,6 +27,7 @@ public sealed class SettingsController : ControllerBase
     [HttpPut("default-location")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetDefaultLocation([FromBody] SetDefaultLocationRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.City))
@@ -38,8 +40,20 @@ public sealed class SettingsController : ControllerBase
             });
         }
 
-        await _defaultLocationService.SetAsync(request.City, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _defaultLocationService.SetAsync(request.City, cancellationToken);
+            return NoContent();
+        }
+        catch (CityNotFoundException)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "City not found",
+                Detail = "The specified city could not be found. Please enter a valid city name.",
+                Status = StatusCodes.Status404NotFound
+            });
+        }
     }
 }
 

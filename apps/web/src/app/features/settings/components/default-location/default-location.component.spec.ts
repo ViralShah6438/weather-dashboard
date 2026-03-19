@@ -35,6 +35,15 @@ describe('DefaultLocationComponent', () => {
     expect(component.save.emit).toHaveBeenCalledWith('Rome');
   });
 
+  it('emits trimmed city value when saving', () => {
+    spyOn(component.save, 'emit');
+    component.draftCity = '  Lisbon  ';
+
+    component.submit();
+
+    expect(component.save.emit).toHaveBeenCalledWith('Lisbon');
+  });
+
   it('does not emit save when city is empty', () => {
     spyOn(component.save, 'emit');
     component.draftCity = ' ';
@@ -42,5 +51,51 @@ describe('DefaultLocationComponent', () => {
     component.submit();
 
     expect(component.save.emit).not.toHaveBeenCalled();
+  });
+
+  it('updates draftCity when city input changes', () => {
+    component.city = 'Milan';
+
+    component.ngOnChanges({
+      city: {
+        previousValue: 'Madrid',
+        currentValue: 'Milan',
+        firstChange: false,
+        isFirstChange: () => false
+      }
+    });
+
+    expect(component.draftCity).toBe('Milan');
+  });
+
+  it('does not overwrite draftCity when unrelated input changes', () => {
+    component.draftCity = 'Custom Draft';
+
+    component.ngOnChanges({
+      disabled: {
+        previousValue: false,
+        currentValue: true,
+        firstChange: false,
+        isFirstChange: () => false
+      }
+    });
+
+    expect(component.draftCity).toBe('Custom Draft');
+  });
+
+  it('does not alter draftCity when city input change value is unchanged', () => {
+    component.draftCity = 'Barcelona';
+    component.city = 'Barcelona';
+
+    component.ngOnChanges({
+      city: {
+        previousValue: 'Barcelona',
+        currentValue: 'Barcelona',
+        firstChange: false,
+        isFirstChange: () => false
+      }
+    });
+
+    expect(component.draftCity).toBe('Barcelona');
   });
 });

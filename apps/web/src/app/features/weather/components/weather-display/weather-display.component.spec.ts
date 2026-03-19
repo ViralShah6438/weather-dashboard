@@ -29,7 +29,16 @@ describe('WeatherDisplayComponent', () => {
     const text = fixture.nativeElement.textContent as string;
 
     expect(text).toContain('London');
+    expect(text).toContain('clear sky');
     expect(text).toContain('Humidity');
     expect(text).toContain('Wind');
+    expect(text).toContain('18.5 C');
+  });
+
+  it('renders weather icon URL and alt text', () => {
+    const image: HTMLImageElement = fixture.nativeElement.querySelector('img');
+
+    expect(image.src).toContain('/01d@2x.png');
+    expect(image.alt).toBe('clear sky');
   });
 });
