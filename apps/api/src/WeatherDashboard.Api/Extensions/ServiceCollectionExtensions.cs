@@ -82,7 +82,9 @@ public static class ServiceCollectionExtensions
         }
         else
         {
-            services.AddScoped<IWeatherProvider, OpenWeatherClient>();
+            // OpenWeatherClient is already registered via AddHttpClient in ResilienceExtensions
+            // We just need to map IWeatherProvider to resolve from the typed HttpClient registration
+            services.AddScoped<IWeatherProvider>(sp => sp.GetRequiredService<OpenWeatherClient>());
         }
 
         services.AddScoped<IWeatherService, WeatherService>();
