@@ -278,6 +278,71 @@ If new roles are added to the App Registration (Tenant 1):
 
 ---
 
+## Part 5: Key Application Configuration (For Developers)
+
+> The full working source code is provided in the `multi-tenant-app/` project. Below are the **3 critical configuration points** that make multi-tenant + role-based auth work.
+
+### 5.1 — MSAL Authority Must Use `/organizations`
+
+This single setting is what enables multi-tenant login. The authority must **not** contain a specific tenant ID.
+
+```typescript
+// In environment.ts
+authority: 'https://login.microsoftonline.com/organizations'
+```
+
+| Authority Value | Behavior |
+|----------------|----------|
+| `/organizations` | Any Azure AD tenant can sign in ✅ |
+| `/common` | Any Azure AD + personal Microsoft accounts |
+| `/{tenant-id}` | Only that specific tenant (single-tenant) ❌ |
+
+### 5.2 — Authorized Roles Must Match App Registration
+
+The application checks the `roles` claim in the ID token. These values must exactly match the **App Role Values** created in Step 1.3:
+
+```typescript
+// In environment.ts
+authorizedRoles: ['App.User', 'App.Admin']
+```
+
+When a user from Tenant 2 signs in:
+- If their group is assigned to the `App.User` role → token contains `"roles": ["App.User"]` → access granted
+- If their group is NOT assigned → token has no `roles` claim → access denied
+
+### 5.3 — The App Reads the `roles` Claim from the ID Token
+
+The application's route guard inspects the token to enforce access:
+
+```typescript
+// Simplified logic in the route guard
+const claims = account.idTokenClaims;
+const userRoles = claims['roles'];  // e.g., ["App.User"]
+
+const allowed = authorizedRoles.some(role => userRoles.includes(role));
+if (!allowed) {
+  // Redirect to "Access Denied" page
+}
+```
+
+This means:
+- **Authentication** is handled by Entra ID (MSAL redirects to Microsoft login)
+- **Authorization** is handled by the app (checking the `roles` claim)
+- **Role assignment** is managed by the Tenant 2 admin (assigning groups in Enterprise Apps)
+
+### Summary: What Each Party Controls
+
+| Responsibility | Who | Where |
+|---------------|-----|-------|
+| Define available roles | App Owner (Tenant 1) | App Registration → App roles |
+| Set authority to `/organizations` | Developer | Application config |
+| Check `roles` claim in code | Developer | Route guard |
+| Grant admin consent | Customer Admin (Tenant 2) | Admin consent URL |
+| Assign groups to roles | Customer Admin (Tenant 2) | Enterprise Applications → Users and groups |
+| Add/remove users from groups | Customer Admin (Tenant 2) | Entra ID → Groups |
+
+---
+
 ## Appendix A: Required Azure AD Roles
 
 | Action | Required Role (Tenant) |
@@ -286,4 +351,17 @@ If new roles are added to the App Registration (Tenant 1):
 | Grant admin consent | Cloud Application Administrator or Global Administrator (Tenant 2) |
 | Assign groups to app roles | Cloud Application Administrator or Application Administrator (Tenant 2) |
 | Manage security groups | Groups Administrator or User Administrator (Tenant 2) |
+
+## Appendix B: Troubleshooting
+
+| Error Code | Meaning | Resolution |
+|-----------|---------|------------|
+| AADSTS50011 | Redirect URI mismatch | Ensure `http://localhost:4200` is registered as a SPA redirect URI |
+| AADSTS700016 | Application not found | Verify the Client ID in `environment.ts` |
+| AADSTS65001 | Consent not granted | Tenant 2 admin must grant admin consent (Step 2.1) |
+| AADSTS50105 | User not assigned to a role | Add user's group to the app role assignment (Step 2.3) |
+| AADSTS650051 | Service principal conflict | Delete existing enterprise app in the tenant and re-consent |
+| No `roles` claim in token | Group not assigned to role | Complete Step 2.3 — assign group to app role |
+| "Access Denied" page | User authenticated but lacks required role | Assign user's group to the correct role in Enterprise Apps |
+
 ---
